@@ -1,0 +1,75 @@
+Parameters:
+  KeypairName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  MyImageId:
+    Type: String
+    Default: ami-08df646e18b182346
+    Description : ami-08df646e18b182346 is for Mumbai region
+  TopicName:
+    Type: String
+    Description:  Topic Name
+    Default: my-topic
+Resources:
+  MyAutoScalingLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y 
+          yum install -y httpd 
+          systemctl start httpd
+          systemctl enable httpd
+          echo "Hello World" > /var/www/html/index.html
+      KeyName: !Ref KeypairName
+      ImageId: !Ref MyImageId
+      SecurityGroups: 
+        - !Ref MySecurityGroup
+      InstanceType: t2.micro
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allowing SSH from everywhere
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          ToPort: '22'
+          FromPort: '22'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          ToPort: '80'
+          FromPort: '80'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          ToPort: '443'
+          FromPort: '443'
+          CidrIp: 0.0.0.0/0
+  MyAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties: 
+      AvailabilityZones: !GetAZs 
+      MinSize: '2'
+      MaxSize: '4'
+      LaunchConfigurationName: !Ref MyAutoScalingLaunchConfiguration
+      NotificationConfigurations:
+      - TopicARN: !Ref MySNSTopic
+        NotificationTypes:
+        - autoscaling:EC2_INSTANCE_LAUNCH
+        - autoscaling:EC2_INSTANCE_LAUNCH_ERROR
+        - autoscaling:EC2_INSTANCE_TERMINATE
+        - autoscaling:EC2_INSTANCE_TERMINATE_ERROR
+        - autoscaling:TEST_NOTIFICATION        
+  MySNSTopic: 
+   Type: AWS::SNS::Topic
+   Properties: 
+     Subscription: 
+       - Endpoint: "arunhn.aws@gmail.com"
+         Protocol: "email"
+     TopicName: !Ref TopicName
+
+Outputs: 
+  MyTopicArn: 
+    Description: Arn of Created SNS Topic
+    Value: !Ref MySNSTopic
+

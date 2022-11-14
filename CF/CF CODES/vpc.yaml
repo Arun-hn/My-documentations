@@ -1,0 +1,108 @@
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: VPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1a
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+  
+  SubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref SubnetA
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "Webserver SG Group"
+      GroupDescription: "Webserver SG"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp:  0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp:  0.0.0.0/0 
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp:  0.0.0.0/0 
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  Webserver:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-03ededff12e34e59e
+      InstanceType: t2.micro
+      SubnetId: !Ref SubnetA
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd.x86_64
+            systemctl start httpd.service
+            systemctl enable httpd.service
+            echo “Hello World from $(hostname -f)” > /var/www/html/index.html
+      Tags:
+        -
+          Key: Name
+          Value:  WebServer
+  Webserver2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-03ededff12e34e59e
+      InstanceType: t2.micro
+      SubnetId: !Ref SubnetA
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd.x86_64
+            systemctl start httpd.service
+            systemctl enable httpd.service
+            echo “Hello World from $(hostname -f)” > /var/www/html/index.html
+      Tags:
+        -
+          Key: Name
+          Value:  WebServer2   

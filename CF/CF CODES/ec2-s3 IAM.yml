@@ -1,0 +1,136 @@
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: 192.178.0.0/16
+  
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 192.178.1.0/24
+      MapPublicIpOnLaunch: "true"
+      AvailabilityZone: "us-east-1a"
+
+  IntGateway:   
+    Type: AWS::EC2::InternetGateway
+  
+  Attachgateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref IntGateway
+ 
+  PublicRouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        VpcId: !Ref MyVPC
+  
+  PublicRoute:
+      Type: AWS::EC2::Route
+      DependsOn: Attachgateway
+      Properties:
+        RouteTableId:
+          Ref: PublicRouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref IntGateway
+  
+  PublicSubnetRouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref PublicSubnet
+        RouteTableId: !Ref PublicRouteTable
+  
+  Securitygroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: Allow SSH and Mysql
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref MyVPC
+
+  MyEC2:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: "ami-052efd3df9dad4825"
+      InstanceType: "t2.micro"
+      KeyName: "08-09-2022"
+      SecurityGroupIds: 
+        - !Ref Securitygroup
+      SubnetId: !Ref PublicSubnet
+      IamInstanceProfile: !Ref InstanceProfile
+      UserData: 
+        Fn::Base64: !Sub |
+          #! /bin/bash
+          sudo apt update
+          sleep 20
+          sudo apt install awscli
+  
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      InstanceProfileName: ec2-instance-profile
+      Path: /
+      Roles: 
+       - !Ref Ec2InstanceRole
+
+  Ec2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ec2-instance-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+          
+  InstanceS3Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DemoS3Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Action:
+              - s3:*
+            Resource: "*"
+      Roles:
+        -
+          !Ref Ec2InstanceRole
+ 
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Description: Creating Amazon S3 bucket from CloudFormation
+    Properties:
+      BucketName: i-named-this-bucket-16-09-22
+
+Outputs:
+  S3Bucket:
+    Description: Bucket Created using this template.
+    Value: !Ref S3Bucket
+  VPCId:
+    Description: "VPCId of VPC"
+    Value: !Ref "MyVPC"        
+
+  PublicIP:
+    Description: Public IP of EC2 Instance
+    Value: !GetAtt MyEC2.PublicIp
+
+
+

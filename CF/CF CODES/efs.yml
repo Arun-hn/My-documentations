@@ -1,0 +1,135 @@
+Resources:
+  EFSSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "security group for the prod EFS"
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: 0.0.0.0/0
+          
+  EFSFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      Encrypted: true
+      ThroughputMode: bursting
+      
+  MountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref EFSFileSystem
+      
+      SecurityGroups: 
+        - !Ref EFSSecurityGroup
+      SubnetId: !Ref PublicSubnet1
+
+  MountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref EFSFileSystem
+      
+      SecurityGroups: 
+        - !Ref EFSSecurityGroup
+      SubnetId: !Ref PublicSubnet2
+
+  MountTarget3:
+    Type: AWS::EFS::MountTarget
+    Properties: 
+      FileSystemId: !Ref EFSFileSystem
+      
+      SecurityGroups: 
+        - !Ref EFSSecurityGroup
+      SubnetId: !Ref PublicSubnet3
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: 192.178.0.0/16
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 192.178.1.0/24
+      MapPublicIpOnLaunch: "true"
+      AvailabilityZone: "us-east-1a"
+  
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 192.178.2.0/24
+      MapPublicIpOnLaunch: "true"
+      AvailabilityZone: "us-east-1b"
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 192.178.3.0/24
+      MapPublicIpOnLaunch: "true"
+      AvailabilityZone: "us-east-1c"
+
+  IntGateway:   
+    Type: AWS::EC2::InternetGateway
+  
+  Attachgateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref IntGateway
+
+
+  PublicRouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        VpcId: !Ref VPC
+  
+  PublicRoute:
+      Type: AWS::EC2::Route
+      DependsOn: Attachgateway
+      Properties:
+        RouteTableId:
+          Ref: PublicRouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref IntGateway
+  
+  PublicSubnetRouteTableAssociation1:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref PublicSubnet1
+        RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetRouteTableAssociation2:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref PublicSubnet2
+        RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetRouteTableAssociation3:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref PublicSubnet3
+        RouteTableId: !Ref PublicRouteTable
+
+Outputs:
+  EFS:
+    Description: The created EFS 
+    Value: !Ref EFSFileSystem
+
+  EFSMountTarget1:
+    Description: The EFS MountTarget1
+    Value: !Ref MountTarget1
+
+  EFSMountTarget2:
+    Description: The EFS MountTarget2
+    Value: !Ref MountTarget2
+
+  EFSMountTarget3:
+    Description: The EFS MountTarget3
+    Value: !Ref MountTarget3
+
+ 
